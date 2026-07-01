@@ -46,6 +46,32 @@ Resolves via [`kotoba-lang/occupation`](https://github.com/kotoba-lang/occupatio
 See [`docs/business-model.md`](docs/business-model.md) and
 [`docs/operator-guide.md`](docs/operator-guide.md).
 
+## Reference implementation
+
+`src/home_nursing/{store,governor}.cljc` is a minimal but real
+implementation of the Core Contract above (pure cljc, no external deps):
+
+- `home-nursing.store` — `Store` protocol + `MemStore`: patients, care
+  plans, visits, medication events. A visit/medication event can only be
+  recorded against a registered patient with a registered care plan (care-plan
+  provenance).
+- `home-nursing.governor` — `HomeNursingGovernor`: `assess` gates a proposal
+  against the care-plan env. Hard invariants force `:hold` (no care plan, or
+  a direct-write instead of `:propose`); `:urgent? true` proposals and
+  medication-administration proposals **always** escalate to
+  `:human-approval` regardless of safety-class or confidence — this cannot
+  be suppressed; `:high`/`:safety-critical` and low-confidence proposals
+  also escalate.
+
+```bash
+clojure -M:test   # 8 tests, 15 assertions, green
+```
+
+This is what backs this repo's `:maturity :implemented` entry in
+[`kotoba-lang/occupation`](https://github.com/kotoba-lang/occupation) —
+the second `cloud-itonami-isco-*` occupation to reach that tier, after
+`cloud-itonami-isco-6112` (ADR-2607012000).
+
 ## License
 
 AGPL-3.0-or-later.
