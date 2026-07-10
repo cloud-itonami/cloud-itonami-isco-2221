@@ -25,6 +25,22 @@
     (is (= :hold (:decision result)))
     (is (some #(= :no-care-plan (:rule %)) (:violations result)))))
 
+(deftest holds-on-orphaned-care-plan-with-no-patient-record
+  ;; register-patient!/register-care-plan! are two independent Store
+  ;; writes with no atomic combined operation -- a care-plan can exist
+  ;; for a patient-id that was never registered. hard-violations used to
+  ;; check ONLY care-plan-fn, so this orphaned state slipped through as a
+  ;; clean pass. Same gap already found and fixed in the sibling
+  ;; ISCO-1212 HR-management governor (:no-employee-record).
+  (let [st (store/mem-store)
+        _ (store/register-care-plan! st {:patient-id "orphan-pat" :protocol "post-op-checkin"})
+        env (governor/env-for-store st)
+        proposal {:action :visit :patient-id "orphan-pat" :safety-class :low
+                   :effect :propose :confidence 0.9}
+        result (governor/assess env proposal)]
+    (is (= :hold (:decision result)))
+    (is (some #(= :no-patient-record (:rule %)) (:violations result)))))
+
 (deftest holds-on-no-actuation-violation
   (let [st (fresh-store)
         env (governor/env-for-store st)

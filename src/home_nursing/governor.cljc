@@ -15,7 +15,16 @@
 
   HARD invariants for :nursing/propose:
     1. Care-plan provenance — a visit or medication event must reference a
-       registered patient with a registered care-plan.
+       registered patient with a registered care-plan. Checks BOTH halves
+       independently (:no-patient-record / :no-care-plan) —
+       register-patient!/register-care-plan! are two independent Store
+       writes with no atomic combined operation, so a care-plan can be
+       registered for a patient-id that was never (or no longer)
+       registered; checking only care-plan-fn would let that orphaned
+       state slip through as a clean pass. Same gap found and fixed in
+       the sibling ISCO-1212 HR-management governor (:no-employee-record),
+       itself backported from the platform edge copy
+       (cloud-itonami.edge.hr-governor, gftdcojp/cloud-itonami).
     2. No-actuation         — the proposal must not directly mutate a visit
        or medication record outside the record-visit!/record-medication!
        path (effect must be :propose, never a raw store write).
@@ -45,10 +54,14 @@
   (let [idx (.indexOf safety-classes safety-class)]
     (if (neg? idx) 0 idx)))
 
-(defn- hard-violations [{:keys [care-plan-fn]} proposal]
+(defn- hard-violations [{:keys [patient-fn care-plan-fn]} proposal]
   (let [{:keys [patient-id effect safety-class]} proposal
+        patient (patient-fn patient-id)
         care-plan (care-plan-fn patient-id)]
     (cond-> []
+      (nil? patient)
+      (conj {:rule :no-patient-record :detail (str "未登録患者 " patient-id)})
+
       (nil? care-plan)
       (conj {:rule :no-care-plan :detail (str "未登録 care-plan " patient-id)})
 
@@ -60,8 +73,9 @@
              :detail (str "未知の safety-class " safety-class)}))))
 
 (defn assess
-  "Assess a proposal against `env` (a map with `:care-plan-fn` lookup,
-  decoupled from any concrete Store so this stays pure). Returns
+  "Assess a proposal against `env` (a map with `:patient-fn`/
+  `:care-plan-fn` lookups, decoupled from any concrete Store so this
+  stays pure). Returns
   `{:decision :proceed|:hold|:human-approval :violations [...] :confidence n}`."
   [env proposal]
   (let [violations (hard-violations env proposal)
@@ -95,4 +109,5 @@
   "Build the decoupled env map `assess` needs from a concrete
   `home-nursing.store/Store` implementation."
   [store]
-  {:care-plan-fn #(store/care-plan-of store %)})
+  {:patient-fn #(store/patient store %)
+   :care-plan-fn #(store/care-plan-of store %)})
