@@ -64,7 +64,7 @@ implementation of the Core Contract above (pure cljc, no external deps):
   also escalate.
 
 ```bash
-clojure -M:test   # 8 tests, 15 assertions, green
+kbb -M:test   # 8 tests, 15 assertions, green
 ```
 
 This is what backs this repo's `:maturity :implemented` entry in
