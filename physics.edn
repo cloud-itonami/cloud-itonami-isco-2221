@@ -1,0 +1,32 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:physics` runs it.
+;;
+;; README "Robotics premise": a mobility and telepresence robot assists
+;; with in-home vitals capture, lifting assist and remote check-ins for
+;; nursing professionals (ISCO 2221). The physical work: taking part of a
+;; patient's weight during a sit-to-stand lifting assist, and stopping a tall,
+;; narrow telepresence robot in a home corridor.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isco-2221"
+ :cases
+ [{:id :sit-to-stand-assist
+   :kind :manipulator
+   :procedure "assist arm supports part of a patient's weight at the chest harness while guiding them from sitting to standing"
+   :params {:l1-m 0.50 :l2-m 0.45 :m1-kg 6.0 :m2-kg 5.0
+            :from [0.45 0.10] :to [0.30 0.65] :duration-s 3.0 :steps 500}
+   :sweep {:param :payload-kg :values [10.0 15.0 20.0 30.0 40.0]}
+   :quantity :peak-tau1-nm
+   :limit {:max 250.0 :basis "estimate: continuous shoulder torque of a care-assist arm; the supported share of body weight is modelled as a tip mass"}
+   :boundary {:lo 1.0 :hi 80.0}}
+  {:id :telepresence-hallway-stop
+   :kind :transport
+   :procedure "telepresence robot with its screen at head height brakes to a stop in a home hallway"
+   :params {:mass-kg 25.0 :payload-kg 0.0 :distance-m 8.0 :v-max-mps 0.8 :a-max-mps2 0.5
+            :drive-force-n 60.0 :crr 0.02 :cog-height-m 0.8 :support-half-length-m 0.15}
+   :sweep {:param :brake-decel-mps2 :values [0.3 0.5 0.8 1.0 1.5]}
+   :quantity :min-tipover-margin
+   :limit {:min 0.3 :basis "estimate: keep 30 % of the static tip-over moment in reserve around people, pets and rugs"}
+   :boundary {:lo 0.2 :hi 2.0}}]}
